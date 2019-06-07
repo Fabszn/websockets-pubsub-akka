@@ -53,10 +53,17 @@ class WebSocketUser(username: String) extends Actor with ActorLogging {
 
           mediator ! Publish(topic, result)
           messageWsHandle(result)
+        case Tick(m) =>
+          //val answer = parse(a, operator, b)
+          val result = Msg(m)
+
+          mediator ! Publish(topic, result)
+          messageWsHandle(result)
       }
 
     case e: Event =>
       e match {
+        case c: Msg => messageWsHandle(c)
         case c: Calculated =>
           if (c.username != username) messageWsHandle(c)
           else ()
@@ -68,10 +75,12 @@ object WebSocketUser {
   sealed trait Command
   case class Calculate(operandA: Int, operandB: Int, operator: String) extends Command
   case class ConnectWsHandle(actorRef: ActorRef)                       extends Command
+  case class Tick(msg: String)                                         extends Command
   case object WsHandleDropped                                          extends Command
 
   sealed trait Event
   case class Calculated(description: String, answer: Option[Int], username: String) extends Event
+  case class Msg(containt: String)                                                  extends Event
 
   def parse(leftOp: Int, operator: String, rightOp: Int): Try[Int] = Try {
     operator match {

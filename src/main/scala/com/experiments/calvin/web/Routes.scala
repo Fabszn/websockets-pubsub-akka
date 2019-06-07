@@ -1,7 +1,7 @@
 package com.experiments.calvin.web
 
 import akka.NotUsed
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorPath, ActorRef, ActorSelection, ActorSystem}
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.model.ws.Message
 import akka.http.scaladsl.server.Directives._
@@ -14,12 +14,15 @@ import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+
 import scala.concurrent.duration._
 
 trait Routes {
   val system: ActorSystem
 
-  private def wsUser(username: String): Flow[Message, Message, NotUsed] = {
+  private def wsUser(username: String): (ActorRef, Flow[Message, Message, NotUsed]) = {
     // Create an actor for every WebSocket connection, this will represent the contact point to reach the user
     val wsUser: ActorRef = system.actorOf(WebSocketUser.props(username))
 
@@ -35,7 +38,7 @@ trait Routes {
     val source: Source[Message, NotUsed] =
       Source
         .actorRef(bufferSize = 10, overflowStrategy = OverflowStrategy.dropBuffer)
-        .map((c: Calculated) => TextMessage.Strict(c.asJson.noSpaces))
+        .map((c: Msg) => TextMessage.Strict(c.asJson.noSpaces))
         .mapMaterializedValue { wsHandle =>
           // the wsHandle is the way to talk back to the user, our wsUser actor needs to know about this to send
           // messages to the WebSocket user
@@ -45,10 +48,18 @@ trait Routes {
         }
         .keepAlive(maxIdle = 10.seconds, () => TextMessage.Strict("Keep-alive message sent to WebSocket recipient"))
 
-    Flow.fromSinkAndSource(sink, source)
+    (wsUser, Flow.fromSinkAndSource(sink, source))
   }
 
   val routes: Route = path("ws" / Remaining) { username: String =>
-    handleWebSocketMessages(wsUser(username))
+    val (a, f) = wsUser(username)
+    handleWebSocketMessages(f)
+  } ~ path("send") {
+    get {
+      //actorRefs.foreach(p => system.actorSelection(p) ! Tick("ezrer"))
+      system.actorSelection("/user/*") ! Tick("ezrer")
+
+      complete("done")
+    }
   }
 }
