@@ -2,7 +2,7 @@ package com.experiments.calvin.actors
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator._
+//import akka.cluster.pubsub.DistributedPubSubMediator._
 import com.experiments.calvin.actors.WebSocketUser.{Calculate, Calculated}
 import WebSocketUser._
 import akka.event.LoggingReceive
@@ -16,24 +16,13 @@ import scala.util.Try
   * @param username is the name of the user
   */
 class WebSocketUser(username: String) extends Actor with ActorLogging {
-  private val topic                      = "calculated-events"
-  private val mediator                   = DistributedPubSub(context.system).mediator
+  private val topic = "calculated-events"
   private var wsHandle: Option[ActorRef] = None
 
   private def messageWsHandle(e: Event): Unit =
     wsHandle.fold(())(actor => actor ! e)
 
-  override def preStart(): Unit = {
-    mediator ! Subscribe(topic, self)
-  }
-
   override def receive: Receive = LoggingReceive {
-    case SubscribeAck(Subscribe(`topic`, None, `self`)) =>
-      log.info("Subscribed {} to {}", username, `topic`)
-
-    case UnsubscribeAck(Unsubscribe(`topic`, None, `self`)) =>
-      log.info("Un-subscribed {} from {}", username, `topic`)
-      context.stop(self)
 
     case c: Command =>
       c match {
@@ -43,7 +32,7 @@ class WebSocketUser(username: String) extends Actor with ActorLogging {
 
         case WsHandleDropped =>
           log.warning("Downstream WebSocket has been disconnected, stopping {}", username)
-          mediator ! Unsubscribe(topic, self)
+        //mediator ! Unsubscribe(topic, self)
 
         case Calculate(a, b, operator) =>
           val answer = parse(a, operator, b)
@@ -51,13 +40,13 @@ class WebSocketUser(username: String) extends Actor with ActorLogging {
             answer.fold(error => Calculated(s"Error processing request: ${error.getMessage}", None, username),
                         res => Calculated(s"$a $operator $b", Some(res), username))
 
-          mediator ! Publish(topic, result)
+          //mediator ! Publish(topic, result)
           messageWsHandle(result)
         case Tick(m) =>
           //val answer = parse(a, operator, b)
           val result = Msg(m)
 
-          mediator ! Publish(topic, result)
+          //mediator ! Publish(topic, result)
           messageWsHandle(result)
       }
 

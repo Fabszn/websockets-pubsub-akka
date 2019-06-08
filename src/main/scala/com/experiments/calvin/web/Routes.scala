@@ -57,7 +57,7 @@ trait Routes {
   } ~ path("send") {
     get {
       //actorRefs.foreach(p => system.actorSelection(p) ! Tick("ezrer"))
-      system.actorSelection("/user/*") ! Tick("ezrer")
+      system.actorSelection("akka://ws-pub-sub-experiment-system/user/*") ! Tick("ezrer")
 
       complete("done")
     }
